@@ -1,3 +1,9 @@
+//- User can press a switch/checkbox to toggle between displaying all items
+//or displaying only items that are unchecked
+//- User can type in a search term and the displayed list will be filtered 
+//by items only containing that search term
+//- User can edit the title of an item
+
 const STORE = {
     items: [
         { id: cuid(), name: "apples", checked: false },
@@ -5,22 +11,39 @@ const STORE = {
         { id: cuid(), name: "milk", checked: true },
         { id: cuid(), name: "bread", checked: false }
     ],
-    hideCompleted: false
+    hideCompleted: false,
+    searchTerm: null,
 };
 
 function generateItemElement(item) {
+    let itemMain;
+    if (item.isEditing){
+        itemMain = `
+            <form id="edit-item-name-form">
+                <input type="text" name="edit-name" class="js-edit-item-name" value="${item.name}" />
+            </form>
+        `;
+    } else {
+        itemMain = `
+            <span class="shopping-item js-shopping-item ${item.checked ? "shopping-item__checked" : ''}">
+                ${item.name}
+            </span>
+        `;
+    }
+    const disabledStatus = item.isEditing ? 'disabled' : '';
+    
     return `
-    <li data-item-id="${item.id}">
-      <span class="shopping-item js-shopping-item ${item.checked ? "shopping-item__checked" : ''}">${item.name}</span>
-      <div class="shopping-item-controls">
-        <button class="shopping-item-toggle js-item-toggle">
-            <span class="button-label">check</span>
-        </button>
-        <button class="shopping-item-delete js-item-delete">
-            <span class="button-label">delete</span>
-        </button>
-      </div>
-    </li>`;
+        <li data-item-id="${item.id}">
+            ${itemMain}
+            <div class="shopping-item-controls">
+                <button class="shopping-item-toggle js-item-toggle" ${disabledStatus}>
+                    <span class="button-label">check</span>
+                </button>
+            <button class="shopping-item-delete js-item-delete" ${disabledStatus}>
+                <span class="button-label">delete</span>
+            </button>
+            </div>
+        </li>`;
 }
 
 
@@ -44,6 +67,12 @@ function renderShoppingList() {
     // if the `hideCompleted` property is true, then we want to reassign filteredItems to a version
     // where ONLY items with a "checked" property of false are included
     if (STORE.hideCompleted) {
+        filteredItems = filteredItems.filter(item => !item.checked);
+    }
+
+    $('.js-search-term').val(STORE.searchTerm);
+
+    if (STORE.searchTerm){
         filteredItems = filteredItems.filter(item => !item.checked);
     }
 
@@ -135,6 +164,55 @@ function handleToggleHideFilter() {
     });
 }
 
+function setSearchTerm(searchTerm){
+    STORE.searchTerm = searchTerm;
+}
+
+function handleSearchSubmit(){
+    $('#js-search-term-form').on('submit', event => {
+        event.preventDefault();
+        const searchTerm = $('.js-search-term').val();
+        setSearchTerm(searchTerm);
+        renderShoppingList();
+    });
+}
+
+function handleSearchClear(){
+    $('#search-form-clear').on('click', () => {
+        setSearchTerm('');
+        renderShoppingList();
+    });
+}
+
+function setItemIsEditing(itemId, isEditing){
+    const targetItem = STORE.items.find(item => item.id === itemId);
+    targetItem.isEditing = isEditing;
+}
+
+function handleItemNameClick(){
+    $('.js-shopping-list').on('click', '.js-shopping-item', event =>{
+        const id = getItemIdFromElement(event.target);
+        setItemIsEditing(id, true);
+        renderShoppingList();
+    })
+}
+
+function editItemName(itemId, newName){
+    const targetItem = STORE.items.find(item => item.id === itemId);
+    targetItem.name = newName;
+}
+
+function handleEditItemForm(){
+    $('.js-shopping-list').on('submit', "#edit-item-name-form", event => {
+        event.preventDefault();
+        const id = getItemIdFromElement(event.target);
+        const newName = $('.js-edit-item-name').val();
+        editItemName(id, newName);
+        setItemIsEditing(id, false);
+        renderShoppingList();
+    });
+}
+
 // this function will be our callback when the page loads. it's responsible for
 // initially rendering the shopping list, and activating our individual functions
 // that handle new item submission and user clicks on the "check" and "delete" buttons
@@ -145,6 +223,10 @@ function handleShoppingList() {
     handleItemCheckClicked();
     handleDeleteItemClicked();
     handleToggleHideFilter();
+    handleSearchSubmit();
+    handleSearchClear();
+    handleItemNameClick();
+    handleEditItemForm();
 }
 
 // when the page loads, call `handleShoppingList`
